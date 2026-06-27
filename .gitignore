@@ -1,0 +1,26 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Secrets — NEVER commit
+secrets/
+*.pem
+.env
+
+# Regenerable data / logs (adjust to your project)
+*.jsonl
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
+
+# Build outputs from the resume pipeline
+*.pdf
+!docs/example.pdf
