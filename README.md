@@ -43,6 +43,10 @@ All inputs and the output PDF default to the **current working directory**.
 directory has none of its own — drop your own copies next to `resume.md` (or
 pass `--css`/`--config`) to override.
 
+Every page gets the build date (e.g. "July 1, 2026") in small light-gray type
+in the bottom-right page margin, in the document's font. Pass `--no-date` to
+omit it.
+
 ### macOS: telling WeasyPrint where the libs are
 
 WeasyPrint loads Pango/GObject via `cffi.dlopen`, which on macOS can't find

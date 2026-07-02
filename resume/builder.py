@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -41,6 +42,15 @@ WRAPPING_P_RE = re.compile(r"^<p>(.*)</p>\s*$", re.S)
 # no-config path (e.g. `build_css({}, "")` in tests) still produces valid CSS.
 DEFAULT_PAGE_SIZE = "612pt 792pt"  # US Letter
 DEFAULT_PAGE_MARGIN = "34pt 52.9pt 36pt 50.4pt"  # top right bottom left
+
+# Must match the body font fallback in style.css: the date footer lives in a
+# @page margin box, where WeasyPrint resolves neither var() nor inheritance
+# from body, so the font-family has to be injected as a literal value.
+DEFAULT_FONT_FAMILY = (
+    '"Nimbus Sans", "Helvetica Neue", Helvetica, "Liberation Sans", Arial, sans-serif'
+)
+DATE_FONT_SIZE = "7.5pt"
+DATE_COLOR = "#b3b3b3"
 
 
 def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -104,7 +114,7 @@ def _render_inline_markdown(text: str) -> str:
 # --- css assembly ----------------------------------------------------------
 
 
-def build_css(config: dict[str, Any], style_css: str) -> str:
+def build_css(config: dict[str, Any], style_css: str, date_text: str | None = None) -> str:
     page = config.get("page", {}) or {}
     if isinstance(page, dict):
         size = page.get("size", DEFAULT_PAGE_SIZE)
@@ -112,9 +122,24 @@ def build_css(config: dict[str, Any], style_css: str) -> str:
     else:
         size = DEFAULT_PAGE_SIZE
         margin = DEFAULT_PAGE_MARGIN
-    page_css = f"@page {{ size: {size}; margin: {margin}; }}"
 
     style_vars = config.get("style", {}) or {}
+
+    if date_text is None:
+        date_box = ""
+    else:
+        font_family = style_vars.get("--font-family", DEFAULT_FONT_FAMILY)
+        escaped = date_text.replace("\\", "\\\\").replace('"', '\\"')
+        date_box = (
+            " @bottom-right {"
+            f' content: "{escaped}";'
+            f" font-family: {font_family};"
+            f" font-size: {DATE_FONT_SIZE};"
+            f" color: {DATE_COLOR};"
+            " }"
+        )
+    page_css = f"@page {{ size: {size}; margin: {margin};{date_box} }}"
+
     root_css = ":root {\n" + "".join(f"  {k}: {v};\n" for k, v in style_vars.items()) + "}"
 
     return f"{page_css}\n{root_css}\n{style_css}"
@@ -129,14 +154,24 @@ class BuildResult(NamedTuple):
     out_path: Path
 
 
+def format_date(d: date) -> str:
+    """Format a date for the footer, e.g. 'July 1, 2026' (no zero-padded day)."""
+    return f"{d:%B} {d.day}, {d.year}"
+
+
 def build_resume(
     *,
     md_path: Path,
     css_path: Path,
     config_path: Path,
     out_path: Path,
+    include_date: bool = True,
 ) -> BuildResult:
     """Run the full pipeline: read inputs, render HTML, write a tagged PDF.
+
+    By default the build date is rendered in the bottom-right page margin
+    (a @page margin box, so it's tagged as an artifact, not content);
+    pass include_date=False to omit it.
 
     Returns a BuildResult describing what was written; printing/CLI feedback
     is left to the caller so this function stays reusable from non-CLI
@@ -149,7 +184,8 @@ def build_resume(
 
     header_html = render_header_html(meta)
     body_html = render_body_html(body_md)
-    css = build_css(config, style_css)
+    date_text = format_date(date.today()) if include_date else None
+    css = build_css(config, style_css, date_text=date_text)
 
     document = (
         '<!DOCTYPE html>\n<html lang="en">\n<head>\n'

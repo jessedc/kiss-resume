@@ -6,8 +6,12 @@ assembly functions are the parts worth pinning. Run via `uv run pytest`.
 
 from __future__ import annotations
 
+from datetime import date
+
 from resume.builder import (
+    DEFAULT_FONT_FAMILY,
     build_css,
+    format_date,
     render_body_html,
     render_header_html,
     split_frontmatter,
@@ -163,3 +167,38 @@ def test_build_css_falls_back_to_defaults_when_page_not_a_dict() -> None:
     css = build_css({"page": "oops"}, "")
     assert "@page { size: 612pt 792pt;" in css
     assert "margin: 34pt 52.9pt 36pt 50.4pt;" in css
+
+
+# --- date footer -------------------------------------------------------------
+
+
+def test_build_css_without_date_has_no_margin_box() -> None:
+    assert "@bottom-right" not in build_css({}, "")
+
+
+def test_build_css_date_box_uses_configured_font() -> None:
+    css = build_css({"style": {"--font-family": "Georgia, serif"}}, "", date_text="July 1, 2026")
+    assert '@bottom-right { content: "July 1, 2026"; font-family: Georgia, serif;' in css
+
+
+def test_build_css_date_box_falls_back_to_default_font() -> None:
+    css = build_css({}, "", date_text="July 1, 2026")
+    assert f"font-family: {DEFAULT_FONT_FAMILY};" in css
+
+
+def test_build_css_date_box_stays_inside_page_rule() -> None:
+    # The margin box must nest inside @page — a sibling rule would be ignored.
+    css = build_css({}, "", date_text="July 1, 2026")
+    page_rule = css.splitlines()[0]
+    assert page_rule.startswith("@page {")
+    assert "@bottom-right {" in page_rule
+    assert page_rule.rstrip().endswith("} }")
+
+
+def test_build_css_escapes_quotes_in_date_text() -> None:
+    css = build_css({}, "", date_text='1 "July" 2026')
+    assert 'content: "1 \\"July\\" 2026";' in css
+
+
+def test_format_date_no_zero_padding() -> None:
+    assert format_date(date(2026, 7, 1)) == "July 1, 2026"

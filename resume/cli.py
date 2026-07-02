@@ -47,6 +47,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--out", default=None, help="output PDF path")
     ap.add_argument(
+        "--no-date",
+        action="store_true",
+        help="omit the build date from the bottom-right page margin",
+    )
+    ap.add_argument(
         "-V",
         "--version",
         action="version",
@@ -81,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
         css_path=css_path,
         config_path=config_path,
         out_path=out_path,
+        include_date=not args.no_date,
     )
     print(f"Wrote {result.out_path}")
     return 0
