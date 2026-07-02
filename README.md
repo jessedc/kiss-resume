@@ -6,9 +6,9 @@ Easily maintain your résumé and generate new versions automatically by making 
 
 Pipeline: **Markdown → HTML → PDF** (via [WeasyPrint](https://weasyprint.org)).
 
-<a href="docs/example.pdf"><img src="docs/example-preview.png" alt="Example résumé PDF generated from the included resume.md with default settings" width="420"></a>
+<a href="docs/resume.pdf"><img src="docs/example-preview.png" alt="Example résumé PDF generated from the included resume.md with default settings" width="420"></a>
 
-See an [example](docs/example.md) résumé and the [generated output](docs/example.pdf). 
+See an [example](docs/resume.md) résumé and the [generated output](docs/resume.pdf). 
 
 ## Install & run
 
