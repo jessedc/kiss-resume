@@ -82,8 +82,7 @@ def main(argv: list[str] | None = None) -> int:
         config_path=config_path,
         out_path=out_path,
     )
-    tag = " (tagged PDF/UA-1)" if result.tagged else ""
-    print(f"Wrote {result.out_path}{tag}")
+    print(f"Wrote {result.out_path}")
     return 0
 
 

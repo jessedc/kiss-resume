@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Markdown → PDF resume builder: `resume.md` (content) + `style.css` (presentation) + `config.yaml` (knobs) → a tagged **PDF/UA-1** via WeasyPrint. Tagged output matters because it makes copy/paste reflow by paragraph instead of breaking at every visual line — don't drop `pdf_variant="pdf/ua-1"` or the `tagged` config option without a reason.
+A Markdown → PDF resume builder: `resume.md` (content) + `style.css` (presentation) + `config.yaml` (knobs) → a tagged **PDF/UA-1** via WeasyPrint. Tagged output matters because it makes copy/paste reflow by paragraph instead of breaking at every visual line — don't drop `pdf_variant="pdf/ua-1"` without a reason.
 
 ## Commands
 
@@ -40,7 +40,7 @@ Three-file separation is the core design, enforced by convention rather than cod
 2. `render_body_html` — Markdown → HTML via `python-markdown` (`extra`, `sane_lists`). Page-break markers (`<!-- break -->`, `<!-- pagebreak -->`, `<!-- newpage -->`) are regex-substituted for a `<div class="pagebreak">` *before* Markdown conversion. A paragraph that is *only* an italic run (`<p><em>...</em></p>`) is promoted to `<p class="meta">` after conversion — this is how "company | dates | location" lines get their distinct styling; inline italics mid-sentence are untouched.
 3. `render_header_html` — turns frontmatter `name`/`contact` into HTML (contact may be a string or a list).
 4. `build_css` — concatenates the generated `@page` rule, a `:root { --k: v; }` block from `config["style"]`, and the raw `style.css`.
-5. `build_resume` — assembles the full HTML document and calls WeasyPrint's `HTML(...).write_pdf(..., pdf_variant="pdf/ua-1")` when `config["pdf"]["tagged"]` is true (default).
+5. `build_resume` — assembles the full HTML document and calls WeasyPrint's `HTML(...).write_pdf(..., pdf_variant="pdf/ua-1")`. The output is always a tagged PDF/UA-1 (there is no opt-out).
 
 Markdown heading levels map directly to resume structure and both `resume/builder.py` and `style.css` encode this same mapping in comments — keep them in sync if it changes:
 

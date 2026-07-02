@@ -127,7 +127,6 @@ class BuildResult(NamedTuple):
     """Outcome of a build run; returned by build_resume for the caller to report."""
 
     out_path: Path
-    tagged: bool
 
 
 def build_resume(
@@ -159,16 +158,12 @@ def build_resume(
         f"{header_html}\n{body_html}\n</body>\n</html>\n"
     )
 
-    pdf_cfg = config.get("pdf", {}) or {}
-    tagged = pdf_cfg.get("tagged", True) if isinstance(pdf_cfg, dict) else True
-    write_kwargs = {"pdf_variant": "pdf/ua-1"} if tagged else {}
-
     # Imported lazily so the pure-logic helpers above stay importable on systems
     # where WeasyPrint's native libs (pango/glib) aren't installed — e.g. CI.
     from weasyprint import HTML
 
     HTML(string=document, base_url=str(md_path.parent)).write_pdf(
         str(out_path),
-        **write_kwargs,  # pyright: ignore[reportArgumentType] — stub mis-types target as zoom
+        pdf_variant="pdf/ua-1",
     )
-    return BuildResult(out_path=out_path, tagged=tagged)
+    return BuildResult(out_path=out_path)

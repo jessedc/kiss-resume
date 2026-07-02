@@ -3,11 +3,6 @@
 # Everything here is presentation. Content lives in resume.md.
 # ---------------------------------------------------------------------------
 
-pdf:
-  # Tagged PDF (PDF/UA-1). Keep true so copy/paste reflows by paragraph
-  # instead of breaking at every visual line.
-  tagged: true
-
 page:
   # US Letter. Use "595pt 842pt" for A4.
   size: "612pt 792pt"
