@@ -20,7 +20,7 @@ from __future__ import annotations
 import html
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import markdown
 import yaml
@@ -31,8 +31,16 @@ if TYPE_CHECKING:
 # --- frontmatter -----------------------------------------------------------
 
 PAGEBREAK_RE = re.compile(r"<!--\s*(?:break|pagebreak|newpage)\s*-->", re.I)
-META_RE = re.compile(r"<p>\s*<em>([^<]*)</em>\s*</p>")
+# Allow tags inside the <em> so an italic-only line that contains a link
+# (e.g. "*[site](url) | 2023 | NYC*") is still promoted to a meta line.
+META_RE = re.compile(r"<p>\s*<em>(.*?)</em>\s*</p>", re.S)
 WRAPPING_P_RE = re.compile(r"^<p>(.*)</p>\s*$", re.S)
+
+# Fallback @page values used only when config.yaml omits `page:`. The primary
+# source of truth for defaults is resume/data/config.yaml; these exist so the
+# no-config path (e.g. `build_css({}, "")` in tests) still produces valid CSS.
+DEFAULT_PAGE_SIZE = "612pt 792pt"  # US Letter
+DEFAULT_PAGE_MARGIN = "34pt 52.9pt 36pt 50.4pt"  # top right bottom left
 
 
 def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -82,7 +90,12 @@ def render_header_html(meta: dict[str, Any]) -> str:
 
 def _render_inline_markdown(text: str) -> str:
     """Render one line of Markdown — e.g. a contact line — so [text](url) links
-    work there too, without the enclosing <p> that markdown.markdown() adds."""
+    work there too, without the enclosing <p> that markdown.markdown() adds.
+
+    Deliberately passes no `extensions=` (unlike render_body_html, which uses
+    ["extra", "sane_lists"]): a contact line is a single string, so block-level
+    extras like fenced code, tables, or footnotes don't apply, and core
+    Markdown is enough for inline links/emphasis."""
     rendered = markdown.markdown(text)
     match = WRAPPING_P_RE.match(rendered)
     return match.group(1) if match else rendered
@@ -93,12 +106,12 @@ def _render_inline_markdown(text: str) -> str:
 
 def build_css(config: dict[str, Any], style_css: str) -> str:
     page = config.get("page", {}) or {}
-    size = page.get("size", "612pt 792pt") if isinstance(page, dict) else "612pt 792pt"
-    margin = (
-        page.get("margin", "34pt 52.9pt 36pt 50.4pt")
-        if isinstance(page, dict)
-        else "34pt 52.9pt 36pt 50.4pt"
-    )
+    if isinstance(page, dict):
+        size = page.get("size", DEFAULT_PAGE_SIZE)
+        margin = page.get("margin", DEFAULT_PAGE_MARGIN)
+    else:
+        size = DEFAULT_PAGE_SIZE
+        margin = DEFAULT_PAGE_MARGIN
     page_css = f"@page {{ size: {size}; margin: {margin}; }}"
 
     style_vars = config.get("style", {}) or {}
@@ -110,14 +123,25 @@ def build_css(config: dict[str, Any], style_css: str) -> str:
 # --- main ------------------------------------------------------------------
 
 
+class BuildResult(NamedTuple):
+    """Outcome of a build run; returned by build_resume for the caller to report."""
+
+    out_path: Path
+    tagged: bool
+
+
 def build_resume(
     *,
     md_path: Path,
     css_path: Path,
     config_path: Path,
     out_path: Path,
-) -> None:
-    """Run the full pipeline: read inputs, render HTML, write a tagged PDF."""
+) -> BuildResult:
+    """Run the full pipeline: read inputs, render HTML, write a tagged PDF.
+
+    Returns a BuildResult describing what was written; printing/CLI feedback
+    is left to the caller so this function stays reusable from non-CLI
+    contexts (watch mode, library use, tests)."""
     md_text = md_path.read_text(encoding="utf-8")
     style_css = css_path.read_text(encoding="utf-8")
     config = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
@@ -147,4 +171,4 @@ def build_resume(
         str(out_path),
         **write_kwargs,  # pyright: ignore[reportArgumentType] — stub mis-types target as zoom
     )
-    print(f"Wrote {out_path}{' (tagged PDF/UA-1)' if tagged else ''}")
+    return BuildResult(out_path=out_path, tagged=tagged)

@@ -30,6 +30,32 @@ def test_split_frontmatter_no_block_returns_empty_meta() -> None:
     assert body == text
 
 
+def test_split_frontmatter_tolerates_leading_whitespace() -> None:
+    # The opening guard uses lstrip(), but re.split runs on the raw text — so a
+    # leading blank line must still parse correctly.
+    text = "\n---\nname: Jane Doe\n---\n# Body\n"
+    meta, body = split_frontmatter(text)
+    assert meta == {"name": "Jane Doe"}
+    assert body.lstrip().startswith("# Body")
+
+
+def test_split_frontmatter_empty_block_yields_empty_meta() -> None:
+    text = "---\n---\n# Body\n"
+    meta, body = split_frontmatter(text)
+    assert meta == {}
+    assert body.lstrip().startswith("# Body")
+
+
+def test_split_frontmatter_preserves_hr_in_body_after_block() -> None:
+    # maxsplit=2 means only the first two --- lines are frontmatter delimiters;
+    # a thematic break later in the body must survive intact.
+    text = "---\nname: Jane\n---\n# Title\n\n---\n\ntext\n"
+    meta, body = split_frontmatter(text)
+    assert meta == {"name": "Jane"}
+    assert "\n---\n" in body  # the HR is preserved, not consumed
+    assert body.lstrip().startswith("# Title")
+
+
 # --- body html --------------------------------------------------------------
 
 
@@ -42,6 +68,15 @@ def test_render_body_html_converts_markdown() -> None:
 def test_render_body_html_promotes_italic_only_line_to_meta() -> None:
     html_out = render_body_html("*Acme Inc | 2023 | Springfield*\n")
     assert '<p class="meta">Acme Inc | 2023 | Springfield</p>' in html_out
+
+
+def test_render_body_html_promotes_italic_line_with_link_to_meta() -> None:
+    # A link inside an italic-only line inserts tags inside <em>; the meta
+    # promotion must still fire so the line keeps its meta styling.
+    html_out = render_body_html("*[acme.com](https://acme.com) | 2023 | NYC*\n")
+    assert '<p class="meta">' in html_out
+    assert '<a href="https://acme.com">acme.com</a>' in html_out
+    assert 'class="meta"' in html_out
 
 
 def test_render_body_html_inline_italic_stays_emphasis() -> None:
@@ -119,5 +154,12 @@ def test_build_css_emits_page_rule_root_vars_and_style() -> None:
 
 def test_build_css_uses_defaults_when_page_missing() -> None:
     css = build_css({}, "")
+    assert "@page { size: 612pt 792pt;" in css
+    assert "margin: 34pt 52.9pt 36pt 50.4pt;" in css
+
+
+def test_build_css_falls_back_to_defaults_when_page_not_a_dict() -> None:
+    # A malformed `page:` (string/list instead of mapping) shouldn't crash.
+    css = build_css({"page": "oops"}, "")
     assert "@page { size: 612pt 792pt;" in css
     assert "margin: 34pt 52.9pt 36pt 50.4pt;" in css
