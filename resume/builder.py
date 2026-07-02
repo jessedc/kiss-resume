@@ -18,7 +18,9 @@ Heading conventions in the Markdown:
 from __future__ import annotations
 
 import html
+import os
 import re
+import sys
 from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
@@ -51,6 +53,27 @@ DEFAULT_FONT_FAMILY = (
 )
 DATE_FONT_SIZE = "7.5pt"
 DATE_COLOR = "#b3b3b3"
+
+# Homebrew installs WeasyPrint's native deps to one of these; neither is on
+# dlopen's default search path on macOS.
+_HOMEBREW_LIB_DIRS = ("/opt/homebrew/lib", "/usr/local/lib")
+
+
+def _ensure_dyld_lib_path() -> None:
+    """Prepend Homebrew's lib dir to DYLD_LIBRARY_PATH so cffi.dlopen finds Pango/glib.
+
+    Set in-process before the lazy weasyprint import. No-op off-macOS; respects an existing value. Requires a non-SIP-protected interpreter (uv's default).
+    """
+    if sys.platform != "darwin":
+        return
+    dirs = [p for p in _HOMEBREW_LIB_DIRS if Path(p).is_dir()]
+    if not dirs:
+        return
+    existing = [p for p in os.environ.get("DYLD_LIBRARY_PATH", "").split(":") if p]
+    for p in dirs:
+        if p not in existing:
+            existing.append(p)
+    os.environ["DYLD_LIBRARY_PATH"] = ":".join(existing)
 
 
 def split_frontmatter(text: str) -> tuple[dict[str, Any], str]:
@@ -195,7 +218,8 @@ def build_resume(
     )
 
     # Imported lazily so the pure-logic helpers above stay importable on systems
-    # where WeasyPrint's native libs (pango/glib) aren't installed — e.g. CI.
+    # where WeasyPrint's native libs (pango/harfbuzz/glib) aren't installed — e.g. CI.
+    _ensure_dyld_lib_path()  # macOS: let dlopen find Homebrew's Pango dylibs
     from weasyprint import HTML
 
     HTML(string=document, base_url=str(md_path.parent)).write_pdf(

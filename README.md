@@ -12,11 +12,11 @@ See an [example](docs/resume.md) résumé and the [generated output](docs/resume
 
 ## Install & run
 
-Requires [uv](https://docs.astral.sh/uv/). WeasyPrint also needs system libs
-(pango, cairo, gdk-pixbuf); on macOS: `brew install pango gdk-pixbuf`.
+Requires [uv](https://docs.astral.sh/uv/) and Pango (with its friends: harfbuzz, fontconfig, glib) available from Homebrew.
 
 ```bash
 uv sync                # create venv, install deps (incl. dev tools)
+brew install pango                # install system libs
 uv run resume                       # -> resume.pdf, from the current dir
 uv run resume --out "Resume.pdf"
 uv run resume --md resume.md --css style.css --config config.yaml --out out.pdf
@@ -38,24 +38,11 @@ resume --md ~/resumes/resume.md --out ~/Desktop/Resume.pdf
 | `config.yaml` | **Knobs.** Page size, margins, fonts, sizes, spacing, bullets.  |
 | `resume/`     | The pipeline (a `uv`-installed package). Reads the three files, writes the PDF. Bundles a default `style.css`/`config.yaml` (`resume/data/`) used when a directory has only a `resume.md`. |
 
-All inputs and the output PDF default to the **current working directory**.
-`style.css`/`config.yaml` fall back to the tool's bundled defaults when a
-directory has none of its own — drop your own copies next to `resume.md` (or
-pass `--css`/`--config`) to override.
+All inputs and the output PDF default to the **current working directory**. `style.css`/`config.yaml` fall back to the tool's bundled defaults when a directory has none of its own — drop your own copies next to `resume.md` (or pass `--css`/`--config`) to override.
 
-### macOS: telling WeasyPrint where the libs are
+### macOS note: don't use the system Python
 
-WeasyPrint loads Pango/GObject via `cffi.dlopen`, which on macOS can't find
-Homebrew's versioned dylibs (`libgobject-2.0.0.dylib`) by their Linux-style
-soname. Set `DYLD_LIBRARY_PATH` at process start so the loader can find them:
-
-```bash
-DYLD_LIBRARY_PATH=/opt/homebrew/lib uv run resume
-# or, after `uv tool install .`:
-DYLD_LIBRARY_PATH=/opt/homebrew/lib resume --out Resume.pdf
-```
-
-(`export`ing it once in your shell rc avoids repeating it.)
+`resume` sets `DYLD_LIBRARY_PATH` in-process so WeasyPrint can find Homebrew's Pango/glib dylibs (which aren't on `dlopen`'s default search path). This only works with non-SIP-protected interpreters — the ones `uv` uses. The system `/usr/bin/python3` is SIP-protected and strips `DYLD_*` vars, so pointing `uv` at it will leave WeasyPrint unable to find its native libs. Stick with `uv`'s default interpreter.
 
 ## Markdown conventions
 
@@ -78,9 +65,7 @@ A line that is *only* italic (`*…*`) is detected as a **meta line** and styled
 Standard Markdown link syntax, `[text](url)`, works both in the body and in
 a `contact:` line.
 
-Link color and underline are configurable via `--link-color` /
-`--link-decoration` in `config.yaml` (`style:` block) — they default to the
-surrounding text color and `underline`, not the browser-default blue.
+Link color and underline are configurable via `--link-color` / `--link-decoration` in `config.yaml` (`style:` block) — they default to the surrounding text color and `underline`, not the browser-default blue.
 
 ### Page breaks
 
@@ -94,19 +79,14 @@ Insert an HTML comment on its own line where a new page should start:
 
 ### Build date
 
-Every page gets the build date (e.g. `July 1, 2026`) printed in small
-light-gray type in the bottom-right page margin, using the document's own
-font. It lives in a `@page` margin box, so in the tagged PDF/UA-1 output it's
-marked as an **artifact** rather than content — screen readers skip it and it
-doesn't pollute the structure tree or copied text.
+Every page gets the build date (e.g. `July 1, 2026`) printed in small light-gray type in the bottom-right page margin, using the document's own font. It lives in a `@page` margin box, so in the tagged PDF/UA-1 output it's marked as an **artifact** rather than content — screen readers skip it and it doesn't pollute the structure tree or copied text.
 
 ```bash
 # Pass `--no-date` to omit the date display
 uv run resume --no-date
 ```
 
-The footer's font-family is injected as a literal into `@page` (from
-`--font-family` in `config.yaml`, falling back to the bundled default) because WeasyPrint resolves neither `var()` nor body inheritance inside `@page`. Its size and color are fixed at `7.5pt` / `#b3b3b3` and aren't currently configurable.
+The footer's font-family is injected as a literal into `@page` (from `--font-family` in `config.yaml`, falling back to the bundled default) because WeasyPrint resolves neither `var()` nor body inheritance inside `@page`. Its size and color are fixed at `7.5pt` / `#b3b3b3` and aren't currently configurable.
 
 ## Customizing the look
 

@@ -25,7 +25,7 @@ uv run pyright
 
 Run `./scripts/check.sh` before considering any change to `resume/` done — it's the single source of truth for green (format + lint + tests + both type checkers).
 
-On macOS, WeasyPrint needs `DYLD_LIBRARY_PATH=/opt/homebrew/lib` set to find Homebrew's Pango/GObject dylibs (it loads them via `cffi.dlopen`, which can't resolve the Linux-style soname otherwise). Only needed for commands that actually render a PDF (`uv run resume`), not for lint/type/test.
+On macOS, WeasyPrint loads Pango/glib via `cffi.dlopen` by bare soname, which can't find Homebrew's dylibs because `/opt/homebrew/lib` (Apple Silicon) and `/usr/local/lib` (Intel) aren't in dlopen's default search path. `resume/builder.py::_ensure_dyld_lib_path` handles this automatically — it prepends the existing Homebrew lib dir to `DYLD_LIBRARY_PATH` in-process, right before the lazy `weasyprint` import inside `build_resume`. So `uv run resume` just works. Only relevant for commands that actually render a PDF; lint/type/test don't import WeasyPrint.
 
 ## Architecture
 
@@ -51,6 +51,6 @@ Markdown heading levels map directly to resume structure and both `resume/builde
 | `###` (H3) | sub-heading |
 | `*italic-only line*` | meta line (company \| dates \| location) |
 
-`weasyprint` is imported lazily inside `build_resume`, not at module top level — this keeps `split_frontmatter`/`render_body_html`/`render_header_html`/`build_css` importable and unit-testable on systems without WeasyPrint's native libs (pango/cairo/gdk-pixbuf), e.g. CI. `tests/test_builder.py` only exercises these pure-logic functions for this reason; it never invokes WeasyPrint itself.
+`weasyprint` is imported lazily inside `build_resume`, not at module top level — this keeps `split_frontmatter`/`render_body_html`/`render_header_html`/`build_css` importable and unit-testable on systems without WeasyPrint's native libs (pango/harfbuzz/glib), e.g. CI. `tests/test_builder.py` only exercises these pure-logic functions for this reason; it never invokes WeasyPrint itself.
 
 `resume/cli.py` resolves `--md`/`--out` against `Path.cwd()` — content and output are always per-project, with no fallback. `--css`/`--config` prefer a same-named file in `Path.cwd()`, falling back to the bundled defaults at `resume/data/style.css` / `resume/data/config.yaml` (shipped inside the package, read via `importlib.resources`) when the current directory has none. This is what lets `resume` run from a directory containing nothing but a `resume.md` — e.g. after `uv tool install .`. `resume/data/` is the single source of truth for the default style/config; there is no root-level copy to keep in sync.
