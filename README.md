@@ -15,15 +15,6 @@ See an [example](docs/resume.md) résumé and the [generated output](docs/resume
 Requires [uv](https://docs.astral.sh/uv/). WeasyPrint also needs system libs
 (pango, cairo, gdk-pixbuf); on macOS: `brew install pango gdk-pixbuf`.
 
-### Files
-
-| File          | Role                                                            |
-|---------------|-----------------------------------------------------------------|
-| `resume.md`   | **Content.** Frontmatter (name/contact) + Markdown body.        |
-| `style.css`   | **Presentation.** All visual styling; values come from `config.yaml`. |
-| `config.yaml` | **Knobs.** Page size, margins, fonts, sizes, spacing, bullets.  |
-| `resume/`     | The pipeline (a `uv`-installed package). Reads the three files, writes the PDF. Bundles a default `style.css`/`config.yaml` (`resume/data/`) used when a directory has only a `resume.md`. |
-
 ```bash
 uv sync                # create venv, install deps (incl. dev tools)
 uv run resume                       # -> resume.pdf, from the current dir
@@ -38,14 +29,19 @@ uv tool install .                    # then `resume` works anywhere
 resume --md ~/resumes/resume.md --out ~/Desktop/Resume.pdf
 ```
 
+### Files
+
+| File          | Role                                                            |
+|---------------|-----------------------------------------------------------------|
+| `resume.md`   | **Content.** Frontmatter (name/contact) + Markdown body.        |
+| `style.css`   | **Presentation.** All visual styling; values come from `config.yaml`. |
+| `config.yaml` | **Knobs.** Page size, margins, fonts, sizes, spacing, bullets.  |
+| `resume/`     | The pipeline (a `uv`-installed package). Reads the three files, writes the PDF. Bundles a default `style.css`/`config.yaml` (`resume/data/`) used when a directory has only a `resume.md`. |
+
 All inputs and the output PDF default to the **current working directory**.
 `style.css`/`config.yaml` fall back to the tool's bundled defaults when a
 directory has none of its own — drop your own copies next to `resume.md` (or
 pass `--css`/`--config`) to override.
-
-Every page gets the build date (e.g. "July 1, 2026") in small light-gray type
-in the bottom-right page margin, in the document's font. Pass `--no-date` to
-omit it.
 
 ### macOS: telling WeasyPrint where the libs are
 
@@ -95,6 +91,22 @@ Insert an HTML comment on its own line where a new page should start:
 ```
 
 `<!-- pagebreak -->` and `<!-- newpage -->` work too. Each one forces the following content onto a new page (`break-before: page`). The current résumé uses one, before the earliest role, to demonstrate splitting experience across pages.
+
+### Build date
+
+Every page gets the build date (e.g. `July 1, 2026`) printed in small
+light-gray type in the bottom-right page margin, using the document's own
+font. It lives in a `@page` margin box, so in the tagged PDF/UA-1 output it's
+marked as an **artifact** rather than content — screen readers skip it and it
+doesn't pollute the structure tree or copied text.
+
+```bash
+# Pass `--no-date` to omit the date display
+uv run resume --no-date
+```
+
+The footer's font-family is injected as a literal into `@page` (from
+`--font-family` in `config.yaml`, falling back to the bundled default) because WeasyPrint resolves neither `var()` nor body inheritance inside `@page`. Its size and color are fixed at `7.5pt` / `#b3b3b3` and aren't currently configurable.
 
 ## Customizing the look
 
