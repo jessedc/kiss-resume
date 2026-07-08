@@ -78,22 +78,27 @@ p.meta {
   margin: var(--meta-margin, 0);
 }
 
-/* ---- bullet lists ---- */
+/* ---- bullet lists ----
+   The marker is deliberately in normal inline flow (inline-block hanging
+   into the ul padding), NOT absolutely positioned: positioned elements are
+   painted in a later pass, which scrambles the PDF content stream so text
+   extraction (copy/paste, ATS parsers) reads bullets out of order. The
+   trailing nbsp in `content` is the marker/text separator extractors see. */
 ul {
   list-style: none;
   margin: var(--list-margin, 2pt 0 0 0);
   padding-left: var(--bullet-indent, 36pt);
 }
 li {
-  position: relative;
   margin: var(--li-margin, 0 0 3pt 0);
 }
 li::before {
-  content: var(--bullet-char, "\25CF");   /* default ● */
-  position: absolute;
-  left: var(--bullet-offset, -18pt);
-  top: var(--bullet-top, 0.2pt);
+  content: var(--bullet-char, "\25CF") "\00a0";   /* default ● + nbsp */
+  display: inline-block;
+  width: var(--bullet-width, 18pt);
+  margin-left: calc(-1 * var(--bullet-width, 18pt));
   font-size: var(--bullet-size, 7.5pt);
+  vertical-align: var(--bullet-nudge, 1.6pt);
 }
 
 /* ---- page break marker (from <!-- break --> in Markdown) ---- */

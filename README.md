@@ -110,6 +110,15 @@ For structural style changes (new selectors, borders, two-column, etc.) edit `st
 ## PDF/UA-1
 The output is a tagged **PDF/UA-1** — the ISO standard (14289-1) for accessible PDF. Rather than just painting text at fixed positions on the page, the PDF carries a structure tree marking what's a heading, a paragraph, or a list item, along with reading order and language metadata. That's the same structure screen readers rely on to navigate the document by section. Text copied from these PDFs will reflows by paragraph instead of breaking at every visual line.
 
+### Copy/paste & résumé parsers (ATS)
+
+Not every tool reads the structure tree — macOS Preview's copy/paste and most ATS parsers (Workday, Greenhouse, …) read the PDF's raw content stream in paint order instead. The stylesheet is written so that both audiences get clean text:
+
+- Bullet markers are part of normal inline flow (never absolutely positioned — positioned elements are painted in a later pass, which would scramble the content stream and make parsers read list items out of order, after the following section). Each item extracts on its own line as `● Grew the team …`, in document order, with a real separator space after the marker. `tests/test_pdf_extraction.py` guards this.
+- The marker character is real text, so it's exactly what pasting and parsing produce. Prefer `- ` prefixes in extracted text? Set `--bullet-char: '"\2013"'` (en dash) or `'"-"'` in `config.yaml` — the trade-off is that the printed bullet changes too; a PDF can't render `●` but copy as `-` (that would need `ActualText`, which WeasyPrint doesn't emit).
+- Line breaks *within* a wrapped paragraph are up to the extractor: tag-aware tools (Acrobat, Word) reflow by paragraph; geometry-based ones (Preview, `pdftotext`) still break at every visual line. That part is the viewer, not the PDF.
+- For ATS uploads, consider `--no-date` so a parser can't mistake the build-date footer for résumé content (tag-aware parsers already skip it as an artifact).
+
 ## Notes on fonts & fidelity
 
 This pipeline defaults to a Helvetica-compatible stack (`Nimbus Sans` / `Liberation Sans` on Linux). For a pixel match to Helvetica Neue, run on a machine that has it installed and set `--font-family` accordingly. WeasyPrint will embed whatever it resolves at build time, so the PDF renders identically everywhere afterward.

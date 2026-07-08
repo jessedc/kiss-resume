@@ -52,11 +52,12 @@ style:
   # italic meta line (company | dates | location)
   "--meta-margin": "0"
 
-  # Bullets
+  # Bullets. The marker char is real text in the PDF, so it is also what
+  # copy/paste and resume parsers see as the item prefix.
   "--bullet-char": '"\25CF"'   # ● ; e.g. "\2022" for a smaller bullet, "\2013" for an en-dash
-  "--bullet-indent": "36pt"
-  "--bullet-offset": "-18pt"
+  "--bullet-indent": "36pt"    # text column (ul padding); wrapped lines align here
+  "--bullet-width": "18pt"     # marker column width, hangs left of the text column
   "--bullet-size": "7.5pt"
-  "--bullet-top": "0.2pt"
+  "--bullet-nudge": "1.6pt"    # vertical-align: raises the (smaller) marker off the baseline
   "--list-margin": "2pt 0 0 0"
   "--li-margin": "0 0 3pt 0"

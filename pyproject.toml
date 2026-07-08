@@ -20,6 +20,7 @@ resume = "resume.cli:main"
 # Dev tools — installed by `uv sync`, excluded from the published wheel.
 dev = [
     "mypy>=2.1.0",
+    "pypdf>=5",
     "pyright>=1.1.410",
     "pytest>=9.1.1",
     "ruff>=0.15.18",
