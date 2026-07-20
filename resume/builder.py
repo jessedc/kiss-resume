@@ -4,8 +4,9 @@ Pipeline:  Markdown (+ YAML frontmatter)  ->  HTML  ->  PDF (WeasyPrint)
 
   * Content      : resume.md   (frontmatter for name/contact, body in Markdown)
   * Presentation : style.css + config.yaml
-  * Output       : a tagged PDF (PDF/UA-1) whose text copies cleanly as
-                   paragraphs instead of breaking at every visual line.
+  * Output       : a tagged PDF (PDF/UA-1) carrying a structure tree —
+                   paragraph/heading/list semantics and an explicit
+                   reading order.
 
 Heading conventions in the Markdown:
     #   -> H1  section header   (Summary, Experience, ...)

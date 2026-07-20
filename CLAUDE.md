@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A Markdown → PDF resume builder: `resume.md` (content) + `style.css` (presentation) + `config.yaml` (knobs) → a tagged **PDF/UA-1** via WeasyPrint. Tagged output matters because it makes copy/paste reflow by paragraph instead of breaking at every visual line — don't drop `pdf_variant="pdf/ua-1"` without a reason.
+A Markdown → PDF resume builder: `resume.md` (content) + `style.css` (presentation) + `config.yaml` (knobs) → a tagged **PDF/UA-1** via WeasyPrint. Tagged output matters because it carries a structure tree: paragraph, heading, and list semantics plus an explicit reading order, which is what accessibility tooling and text extractors consume. It does *not* stop extractors from inserting a newline at every visual line break — that is the reader's geometry heuristic, and nothing in the file overrides it. Don't drop `pdf_variant="pdf/ua-1"` without a reason.
 
 ## Commands
 
