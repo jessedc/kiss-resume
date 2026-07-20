@@ -7,6 +7,9 @@ Pipeline:  Markdown (+ YAML frontmatter)  ->  HTML  ->  PDF (WeasyPrint)
   * Output       : a tagged PDF (PDF/UA-1) carrying a structure tree —
                    paragraph/heading/list semantics and an explicit
                    reading order.
+                   Optionally (--html) also a standalone .html sibling — the
+                   same content and stylesheet, rendered as a sheet of paper
+                   on screen. See render_html_document.
 
 Heading conventions in the Markdown:
     #   -> H1  section header   (Summary, Experience, ...)
@@ -169,6 +172,85 @@ def build_css(config: dict[str, Any], style_css: str, date_text: str | None = No
     return f"{page_css}\n{root_css}\n{style_css}"
 
 
+# --- html document ---------------------------------------------------------
+
+# Theme switch for the screen output. `system` is the default and is represented
+# by the *absence* of data-theme on <html>, so the CSS falls through to
+# prefers-color-scheme; light/dark set it explicitly. Kept as hand-written markup
+# rather than generated, since it is fixed UI with no content dependency.
+THEME_SWITCH_HTML = """<div class="theme-switch" role="group" aria-label="Colour theme">\
+<button type="button" data-theme-choice="system" aria-pressed="true">Auto</button>\
+<button type="button" data-theme-choice="light" aria-pressed="false">Light</button>\
+<button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>\
+</div>"""
+
+# Runs in <head>, before the body paints, so a stored dark choice doesn't flash
+# light first. Deliberately tiny and duplicated in spirit by THEME_SCRIPT below.
+THEME_PRELUDE_SCRIPT = (
+    "(function(){try{var t=localStorage.getItem('resume-theme');"
+    "if(t==='light'||t==='dark'){document.documentElement.dataset.theme=t;}}catch(e){}})();"
+)
+
+# Wires the switch. localStorage access is wrapped because it throws in some
+# privacy modes and on file:// in a few browsers — the switch must still work
+# for the current page even when the choice can't be persisted.
+THEME_SCRIPT = """(function(){
+  var KEY = 'resume-theme';
+  var root = document.documentElement;
+  var buttons = Array.prototype.slice.call(document.querySelectorAll('[data-theme-choice]'));
+  function stored() {
+    try { return localStorage.getItem(KEY) || 'system'; } catch (e) { return 'system'; }
+  }
+  function apply(choice) {
+    if (choice === 'system') { delete root.dataset.theme; } else { root.dataset.theme = choice; }
+    buttons.forEach(function (b) {
+      b.setAttribute('aria-pressed', String(b.dataset.themeChoice === choice));
+    });
+    try {
+      if (choice === 'system') { localStorage.removeItem(KEY); }
+      else { localStorage.setItem(KEY, choice); }
+    } catch (e) {}
+  }
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () { apply(b.dataset.themeChoice); });
+  });
+  apply(stored());
+})();"""
+
+
+def render_html_document(
+    *,
+    header_html: str,
+    body_html: str,
+    css: str,
+    title: str,
+    date_text: str | None = None,
+) -> str:
+    """Assemble the standalone screen HTML: content wrapped in a `.sheet` card.
+
+    Same content and same stylesheet as the PDF — the screen presentation lives
+    entirely in style.css's `@media screen` block, which WeasyPrint drops
+    because it renders with media type `print`.
+
+    The build date is emitted as a real element here rather than reusing the
+    PDF's `@page { @bottom-right }` margin box, which browsers honour only when
+    printing; `@media print` in style.css hides this one so the two never
+    double up on paper."""
+    date_html = f'\n<p class="sheet-date">{html.escape(date_text)}</p>' if date_text else ""
+    return (
+        '<!DOCTYPE html>\n<html lang="en">\n<head>\n'
+        '<meta charset="utf-8">\n'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+        f"<title>{html.escape(title)}</title>\n"
+        f"<script>{THEME_PRELUDE_SCRIPT}</script>\n"
+        f"<style>\n{css}\n</style>\n</head>\n<body>\n"
+        f'<div class="sheet">\n{THEME_SWITCH_HTML}\n'
+        f"{header_html}\n{body_html}{date_html}\n</div>\n"
+        f"<script>\n{THEME_SCRIPT}\n</script>\n"
+        "</body>\n</html>\n"
+    )
+
+
 # --- main ------------------------------------------------------------------
 
 
@@ -176,6 +258,7 @@ class BuildResult(NamedTuple):
     """Outcome of a build run; returned by build_resume for the caller to report."""
 
     out_path: Path
+    html_path: Path | None = None
 
 
 def format_date(d: date) -> str:
@@ -190,12 +273,18 @@ def build_resume(
     config_path: Path,
     out_path: Path,
     include_date: bool = True,
+    write_html: bool = False,
 ) -> BuildResult:
     """Run the full pipeline: read inputs, render HTML, write a tagged PDF.
 
     By default the build date is rendered in the bottom-right page margin
     (a @page margin box, so it's tagged as an artifact, not content);
     pass include_date=False to omit it.
+
+    With write_html=True, a standalone browser-readable .html sibling of
+    out_path is written as well (see render_html_document). It is written
+    after the PDF, so a WeasyPrint failure doesn't leave a lone .html behind
+    implying the build succeeded.
 
     Returns a BuildResult describing what was written; printing/CLI feedback
     is left to the caller so this function stays reusable from non-CLI
@@ -227,4 +316,18 @@ def build_resume(
         str(out_path),
         pdf_variant="pdf/ua-1",
     )
-    return BuildResult(out_path=out_path)
+
+    html_path: Path | None = None
+    if write_html:
+        html_path = out_path.with_suffix(".html")
+        html_path.write_text(
+            render_html_document(
+                header_html=header_html,
+                body_html=body_html,
+                css=css,
+                title=str(meta.get("name") or out_path.stem),
+                date_text=date_text,
+            ),
+            encoding="utf-8",
+        )
+    return BuildResult(out_path=out_path, html_path=html_path)

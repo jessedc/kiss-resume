@@ -52,6 +52,11 @@ def main(argv: list[str] | None = None) -> int:
         help="omit the build date from the bottom-right page margin",
     )
     ap.add_argument(
+        "--html",
+        action="store_true",
+        help="also write a browser-readable HTML version alongside the PDF",
+    )
+    ap.add_argument(
         "-V",
         "--version",
         action="version",
@@ -87,8 +92,11 @@ def main(argv: list[str] | None = None) -> int:
         config_path=config_path,
         out_path=out_path,
         include_date=not args.no_date,
+        write_html=args.html,
     )
     print(f"Wrote {result.out_path}")
+    if result.html_path is not None:
+        print(f"Wrote {result.html_path}")
     return 0
 
 

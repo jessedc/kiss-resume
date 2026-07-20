@@ -14,6 +14,7 @@ from resume.builder import (
     format_date,
     render_body_html,
     render_header_html,
+    render_html_document,
     split_frontmatter,
 )
 
@@ -202,3 +203,66 @@ def test_build_css_escapes_quotes_in_date_text() -> None:
 
 def test_format_date_no_zero_padding() -> None:
     assert format_date(date(2026, 7, 1)) == "July 1, 2026"
+
+
+# --- html document (the optional --html output) ------------------------------
+
+
+def _doc(**kwargs: str | None) -> str:
+    args: dict[str, str | None] = {
+        "header_html": '<p class="name">Jane</p>',
+        "body_html": "<h1>Summary</h1>",
+        "css": "/* css */",
+        "title": "Jane Doe",
+    }
+    args.update(kwargs)
+    return render_html_document(**args)  # type: ignore[arg-type]
+
+
+def test_render_html_document_wraps_content_in_sheet() -> None:
+    out = _doc()
+    assert '<div class="sheet">' in out
+    assert '<p class="name">Jane</p>' in out
+    assert "<h1>Summary</h1>" in out
+    assert "/* css */" in out
+
+
+def test_render_html_document_has_viewport_meta() -> None:
+    # Without this the mobile layout is rendered at desktop width and scaled down.
+    assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in _doc()
+
+
+def test_render_html_document_escapes_title() -> None:
+    out = _doc(title="<script>x</script>")
+    assert "<title>&lt;script&gt;x&lt;/script&gt;</title>" in out
+
+
+def test_render_html_document_includes_theme_switch() -> None:
+    out = _doc()
+    assert 'data-theme-choice="system"' in out
+    assert 'data-theme-choice="light"' in out
+    assert 'data-theme-choice="dark"' in out
+
+
+def test_render_html_document_theme_defaults_to_system() -> None:
+    # 'system' is represented by the absence of data-theme on <html>, so the CSS
+    # falls through to prefers-color-scheme.
+    out = _doc()
+    assert '<html lang="en">' in out
+    assert "data-theme=" not in out.split("<body>")[0].replace("data-theme-choice", "")
+    assert 'data-theme-choice="system" aria-pressed="true"' in out
+
+
+def test_render_html_document_renders_date_as_element() -> None:
+    # The PDF's @page margin box doesn't render on screen, so the HTML needs a
+    # real element for the date.
+    out = _doc(date_text="July 1, 2026")
+    assert '<p class="sheet-date">July 1, 2026</p>' in out
+
+
+def test_render_html_document_omits_date_element_when_absent() -> None:
+    assert "sheet-date" not in _doc(date_text=None)
+
+
+def test_render_html_document_escapes_date_text() -> None:
+    assert "&lt;b&gt;" in _doc(date_text="<b>July</b>")
