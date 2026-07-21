@@ -72,6 +72,45 @@ def test_bullets_extract_in_document_order(extracted_text: str) -> None:
     )
 
 
+def test_html_output_is_written_alongside_pdf(tmp_path: Path) -> None:
+    """--html writes a .html sibling of the PDF, and the PDF still builds.
+
+    The screen presentation lives in style.css's `@media screen` block; the
+    existing extraction tests above use that same stylesheet, so they double as
+    the guard that none of it leaks into the print rendering.
+    """
+    data = importlib.resources.files("resume") / "data"
+    out_pdf = tmp_path / "resume.pdf"
+    result = build_resume(
+        md_path=DOCS_MD,
+        css_path=Path(str(data / "style.css")),
+        config_path=Path(str(data / "config.yaml")),
+        out_path=out_pdf,
+        include_date=False,
+        write_html=True,
+    )
+    assert result.html_path == tmp_path / "resume.html"
+    assert result.html_path is not None
+    html_text = result.html_path.read_text(encoding="utf-8")
+    assert "<title>Sam Rivera</title>" in html_text
+    assert '<div class="sheet">' in html_text
+    assert "@media screen" in html_text  # the stylesheet is inlined, not linked
+    assert out_pdf.is_file()
+
+
+def test_no_html_output_by_default(tmp_path: Path) -> None:
+    data = importlib.resources.files("resume") / "data"
+    result = build_resume(
+        md_path=DOCS_MD,
+        css_path=Path(str(data / "style.css")),
+        config_path=Path(str(data / "config.yaml")),
+        out_path=tmp_path / "resume.pdf",
+        include_date=False,
+    )
+    assert result.html_path is None
+    assert not (tmp_path / "resume.html").exists()
+
+
 def test_bullet_markers_are_inline_with_item_text(extracted_text: str) -> None:
     """Each marker must extract as a prefix of its item, never as an orphan line."""
     marker_lines = [line for line in extracted_text.splitlines() if BULLET in line]

@@ -103,3 +103,152 @@ li::before {
 
 /* ---- page break marker (from <!-- break --> in Markdown) ---- */
 .pagebreak { break-before: page; }
+
+/* ----------------------------------------------------------------------------
+   Screen presentation (the optional `--html` output only).
+
+   WeasyPrint renders with media type `print`, so this entire block is dropped
+   from the PDF — it exists purely to make resume.html readable in a browser.
+   That is also why `position` is safe here in a way it is not in the print
+   rules above: none of this reaches the PDF content stream.
+
+   The HTML output wraps the content in `.sheet` and appends a theme switch;
+   neither element exists in the PDF document, so the print rules never see them.
+---------------------------------------------------------------------------- */
+@media screen {
+  /* Screen-only palette, deliberately namespaced away from the config-driven
+     --text-color etc. so a dark theme can restyle without fighting :root. */
+  :root {
+    --screen-backdrop: #f6f5f2;
+    --screen-paper: #fffefb;
+    --screen-edge: #e2ded4;
+    --screen-ink: #16181d;
+    --screen-muted: #a9a49a;
+    --screen-rule: #ebe7dd;
+    --screen-control: #8b8578;
+  }
+  /* System preference (no explicit choice stored). */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --screen-backdrop: #14161a;
+      --screen-paper: #1e2026;
+      --screen-edge: #2f333b;
+      --screen-ink: #e6e3dd;
+      --screen-muted: #7d838d;
+      --screen-rule: #2f333b;
+      --screen-control: #8a919c;
+    }
+  }
+  /* Explicit choice from the theme switch — must beat the media query above,
+     in both directions, so each theme is spelled out rather than inherited. */
+  :root[data-theme="light"] {
+    --screen-backdrop: #f6f5f2;
+    --screen-paper: #fffefb;
+    --screen-edge: #e2ded4;
+    --screen-ink: #16181d;
+    --screen-muted: #a9a49a;
+    --screen-rule: #ebe7dd;
+    --screen-control: #8b8578;
+  }
+  :root[data-theme="dark"] {
+    --screen-backdrop: #14161a;
+    --screen-paper: #1e2026;
+    --screen-edge: #2f333b;
+    --screen-ink: #e6e3dd;
+    --screen-muted: #7d838d;
+    --screen-rule: #2f333b;
+    --screen-control: #8a919c;
+  }
+
+  /* Later than the `body` rule at the top of this file, so these win. */
+  body {
+    background: var(--screen-backdrop);
+    color: var(--screen-ink);
+    padding: 40pt 16pt 56pt;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* The sheet of paper. */
+  .sheet {
+    box-sizing: border-box;
+    position: relative;
+    width: 100%;
+    max-width: var(--sheet-width, 560pt);
+    margin: 0 auto;
+    padding: var(--sheet-padding, 44pt 48pt 48pt);
+    background: var(--screen-paper);
+    border: 0.75pt solid var(--screen-edge);
+    border-radius: 3pt;
+  }
+
+  /* Build date — on screen this is a real element, because the @page
+     margin box that carries it in the PDF only applies when printing. */
+  .sheet-date {
+    margin-top: 28pt;
+    padding-top: 10pt;
+    border-top: 0.75pt solid var(--screen-rule);
+    font-size: 8pt;
+    color: var(--screen-muted);
+  }
+
+  /* ---- theme switch (system / light / dark), top-right of the sheet ---- */
+  .theme-switch {
+    position: absolute;
+    top: 12pt;
+    right: 14pt;
+    display: flex;
+    gap: 1pt;
+    padding: 1.5pt;
+    border: 0.75pt solid var(--screen-edge);
+    border-radius: 99pt;
+  }
+  .theme-switch button {
+    appearance: none;
+    margin: 0;
+    padding: 2.5pt 7pt;
+    border: 0;
+    border-radius: 99pt;
+    background: transparent;
+    font: inherit;
+    font-size: 7.5pt;
+    line-height: 1.4;
+    color: var(--screen-control);
+    cursor: pointer;
+  }
+  .theme-switch button:hover {
+    color: var(--screen-ink);
+  }
+  .theme-switch button[aria-pressed="true"] {
+    background: var(--screen-backdrop);
+    color: var(--screen-ink);
+  }
+  .theme-switch button:focus-visible {
+    outline: 1.5pt solid var(--screen-ink);
+    outline-offset: 1pt;
+  }
+
+  /* ---- narrow screens: drop the card, go full-bleed, size type up ---- */
+  @media (max-width: 600pt) {
+    body {
+      font-size: var(--screen-base-size, 12pt);
+      line-height: var(--screen-line-height, 17pt);
+      background: var(--screen-paper);
+      padding: 0;
+    }
+    .sheet {
+      max-width: none;
+      padding: var(--sheet-padding-narrow, 30pt 22pt 34pt);
+      border: 0;
+      border-radius: 0;
+    }
+    .theme-switch {
+      top: 8pt;
+      right: 10pt;
+    }
+  }
+}
+
+/* Printing the HTML from a browser: the switch is UI, not content. */
+@media print {
+  .theme-switch { display: none; }
+}

@@ -9,9 +9,12 @@ is intentionally out of scope (see tests/test_builder.py).
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 
+import resume.cli
+from resume.builder import BuildResult
 from resume.cli import _resolve_default, main
 
 # --- _resolve_default -------------------------------------------------------
@@ -82,3 +85,44 @@ def test_main_errors_on_missing_explicit_config(
         main(["--md", str(md), "--config", str(missing_cfg)])
     assert exc.value.code == 2
     assert "config not found" in capsys.readouterr().err
+
+
+# --- flag plumbing ----------------------------------------------------------
+# build_resume is stubbed out so these stay WeasyPrint-free; they pin only that
+# the CLI translates flags into the right keyword arguments.
+
+
+@pytest.fixture
+def captured_build(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, dict[str, Any]]:
+    md = tmp_path / "resume.md"
+    md.write_text("# Hi\n", encoding="utf-8")
+    calls: dict[str, Any] = {}
+
+    def fake_build(**kwargs: Any) -> BuildResult:
+        calls.update(kwargs)
+        out: Path = kwargs["out_path"]
+        return BuildResult(
+            out_path=out,
+            html_path=out.with_suffix(".html") if kwargs.get("write_html") else None,
+        )
+
+    monkeypatch.setattr(resume.cli, "build_resume", fake_build)
+    return md, calls
+
+
+def test_main_defaults_to_no_html(captured_build: tuple[Path, dict[str, Any]]) -> None:
+    md, calls = captured_build
+    assert main(["--md", str(md)]) == 0
+    assert calls["write_html"] is False
+
+
+def test_main_html_flag_requests_html(
+    captured_build: tuple[Path, dict[str, Any]], capsys: pytest.CaptureFixture[str]
+) -> None:
+    md, calls = captured_build
+    assert main(["--md", str(md), "--out", str(md.parent / "out.pdf"), "--html"]) == 0
+    assert calls["write_html"] is True
+    # Both artefacts are reported, so the user knows the .html was written.
+    out = capsys.readouterr().out
+    assert "out.pdf" in out
+    assert "out.html" in out
